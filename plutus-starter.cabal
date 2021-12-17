@@ -42,10 +42,12 @@ library
     import: lang
     exposed-modules:
       Plutus.Contract.BalanceProof
+      Plutus.Contract.Channel
     build-depends:
       base >= 4.9 && < 5,
       aeson,
       bytestring,
+      text,
       containers,
       freer-extras,
       playground-common,
@@ -53,4 +55,6 @@ library
       plutus-tx-plugin,
       plutus-tx,
       plutus-ledger,
+      plutus-ledger-constraints,
+      plutus-ledger-api
     hs-source-dirs: src
