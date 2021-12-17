@@ -79,6 +79,7 @@ channelSimulation = do
     let channelAda = Ada.lovelaceOf $ oneAdaInLovelace * 50
     cidOpenChan  <- Simulator.activateContract party1Wallet $ OpenChannel channelParams channelAda
     _        <- Simulator.waitUntilFinished cidOpenChan
+    _        <- Simulator.waitNSlots 10
 
     let balanceProof = BP.BalanceProof
                         { BP.bpBalance1 = oneAdaInLovelace * 6
@@ -91,6 +92,7 @@ channelSimulation = do
             }
     cidCloseChan  <- Simulator.activateContract party1Wallet $ CloseChannel channelParams balanceProofCheck
     _        <- Simulator.waitUntilFinished cidCloseChan
+    _        <- Simulator.waitNSlots 5
 
     pure ()
 

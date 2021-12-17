@@ -104,6 +104,7 @@ closeChannel cp@ChannelParams{..} sigs@BP.BalanceProofCheck{..} = do
     bp1 <- maybe (throw "Off-chain party 1 signature invalid") pure $ BP.verifyBalanceProofOffChain party1 bpcSignature1
     bp2 <- maybe (throw "Off-chain party 2 signature invalid") pure $ BP.verifyBalanceProofOffChain party2 bpcSignature2
     unless (bp1 Haskell.== bp2) $ throw "Balance proofs are not equal"
+    
     let channelScript = typedValidator cp
     unspentOutputs <- utxosAt (Scripts.validatorAddress channelScript)
     let constraints = Typed.collectFromScript unspentOutputs (CloseChannel sigs)
