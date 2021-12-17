@@ -64,3 +64,13 @@ library
       plutus-pab,
       openapi3
     hs-source-dirs: src
+
+executable pab-simulation
+  import: lang
+  main-is: Main.hs
+  hs-source-dirs: pab-simulation
+  ghc-options:
+    -threaded
+  build-depends:
+    base >= 4.9 && < 5,
+    plutus-starter

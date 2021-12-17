@@ -25,6 +25,7 @@ import qualified Plutus.Contract.Oracle as Oracle
 import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude                as Haskell
+
 data BalanceProof = BalanceProof
   { bpBalance1 :: Integer
   , bpBalance2 :: Integer

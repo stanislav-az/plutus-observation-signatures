@@ -63,9 +63,6 @@ handlers =
 
 channelSimulation :: Simulation (Builtin ChannelContracts) ()
 channelSimulation = do
-    Simulator.logString @(Builtin ChannelContracts) "Starting PAB webserver. Press enter to exit."
-    shutdown <- PAB.startServerDebug
-
     let party1Wallet = Wallet.knownWallet 1
     let party1PubKey = Wallet.walletPubKey party1Wallet
     let party1PrivKey =  knownWalletPrivKey 1
@@ -79,9 +76,23 @@ channelSimulation = do
                             { Chan.party1 = party1PubKey
                             , Chan.party2 = party2PubKey
                             }
-    cidOpenChan  <- Simulator.activateContract party1Wallet $ OpenChannel channelParams $ Ada.lovelaceOf 500
+    let channelAda = Ada.lovelaceOf $ oneAdaInLovelace * 50
+    cidOpenChan  <- Simulator.activateContract party1Wallet $ OpenChannel channelParams channelAda
     _        <- Simulator.waitUntilFinished cidOpenChan
-    shutdown
+
+    let balanceProof = BP.BalanceProof
+                        { BP.bpBalance1 = oneAdaInLovelace * 6
+                        , BP.bpBalance2 = oneAdaInLovelace * 15
+                        , BP.bpOrder    = 5
+                        }
+    let balanceProofCheck = BP.BalanceProofCheck
+            { BP.bpcSignature1 = BP.signBalanceProof balanceProof party1PrivKey
+            , BP.bpcSignature2 = BP.signBalanceProof balanceProof party2PrivKey
+            }
+    cidCloseChan  <- Simulator.activateContract party1Wallet $ CloseChannel channelParams balanceProofCheck
+    _        <- Simulator.waitUntilFinished cidCloseChan
+
+    pure ()
 
 runChannelSimulation :: IO ()
 runChannelSimulation = void $ Simulator.runSimulationWith handlers $ do
@@ -95,3 +106,6 @@ runChannelSimulation = void $ Simulator.runSimulationWith handlers $ do
 
 knownWalletPrivKey :: Integer -> Ledger.PrivateKey
 knownWalletPrivKey =  Wallet.ownPrivateKey . Wallet.fromMockWallet . CW.fromWalletNumber . CW.WalletNumber
+
+oneAdaInLovelace :: Integer
+oneAdaInLovelace = 1000000

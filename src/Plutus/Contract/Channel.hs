@@ -24,6 +24,7 @@ import qualified Prelude                      as Haskell
 import           Data.Aeson                   (FromJSON, ToJSON)
 import qualified Data.OpenApi.Schema          as OpenApi
 import           Data.Text                    (Text)
+import qualified Data.Text                    as Text
 import           GHC.Generics                 (Generic)
 import           Ledger                       (Datum (..), TxId, getCardanoTxId)
 import qualified Ledger
@@ -32,7 +33,8 @@ import           Ledger.Contexts              (ScriptContext (..))
 import           Ledger.Crypto                (PubKey (..))
 import qualified Ledger.Typed.Scripts         as Scripts
 import           Plutus.Contract              (AsContractError, Contract,
-                                               logError, mkTxConstraints,
+                                               logError, logInfo,
+                                               mkTxConstraints,
                                                submitUnbalancedTx, throwError,
                                                utxosAt)
 import qualified Plutus.Contract.BalanceProof as BP
@@ -82,20 +84,23 @@ openChannel ::
     )
     => ChannelParams
     -> Ledger.Ada
-    -> Contract w s e TxId
+    -> Contract w s e ()
 openChannel cp adaAmount = do
+    logInfo @Text $ "Starting Channel With: " Haskell.<> show cp
     let channelScript = typedValidator cp
     let constraints = Constraints.mustPayToTheScript () $ Ada.toValue adaAmount
     let lookups = Constraints.typedValidatorLookups channelScript
     utx <- mkTxConstraints lookups constraints
-    getCardanoTxId <$> submitUnbalancedTx (Constraints.adjustUnbalancedTx utx)
+    txId <- getCardanoTxId <$> submitUnbalancedTx (Constraints.adjustUnbalancedTx utx)
+    logInfo @Text $ "Opened Channel: " Haskell.<> show txId
 
 closeChannel ::
     forall w s.
     ChannelParams
     -> BP.BalanceProofCheck
-    -> Contract w s Text TxId
+    -> Contract w s Text ()
 closeChannel cp@ChannelParams{..} sigs@BP.BalanceProofCheck{..} = do
+    logInfo @Text $ "Closing Channel With: " Haskell.<> show cp
     bp1 <- maybe (throw "Off-chain party 1 signature invalid") pure $ BP.verifyBalanceProofOffChain party1 bpcSignature1
     bp2 <- maybe (throw "Off-chain party 2 signature invalid") pure $ BP.verifyBalanceProofOffChain party2 bpcSignature2
     unless (bp1 Haskell.== bp2) $ throw "Balance proofs are not equal"
@@ -105,10 +110,14 @@ closeChannel cp@ChannelParams{..} sigs@BP.BalanceProofCheck{..} = do
                        <> Constraints.mustIncludeDatum (Datum $ PlutusTx.toBuiltinData bp2)
     let lookups = Constraints.typedValidatorLookups channelScript
                     Haskell.<> Constraints.unspentOutputs unspentOutputs
-    if Constraints.modifiesUtxoSet constraints
-    then do
-        utx <- mkTxConstraints lookups constraints
-        getCardanoTxId <$> submitUnbalancedTx (Constraints.adjustUnbalancedTx utx)
-    else throw "Close channel failed"
+    txId <- if Constraints.modifiesUtxoSet constraints
+            then do
+                utx <- mkTxConstraints lookups constraints
+                getCardanoTxId <$> submitUnbalancedTx (Constraints.adjustUnbalancedTx utx)
+            else throw "Close channel failed"
+    logInfo @Text $ "Closed Channel: " Haskell.<> show txId
     where
         throw e = logError e >> throwError e
+
+show :: Haskell.Show a => a -> Text
+show = Text.pack . Haskell.show
