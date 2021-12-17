@@ -46,11 +46,19 @@ signBalanceProof ::
      BalanceProof -> Crypto.PrivateKey -> Oracle.SignedMessage BalanceProof
 signBalanceProof = Oracle.signMessage
 
-{-# INLINABLE verifyBalanceProof #-}
-verifyBalanceProof :: ScriptContext
+{-# INLINABLE verifyBalanceProofOnChain #-}
+verifyBalanceProofOnChain :: ScriptContext
     -> PubKey
     -> Oracle.SignedMessage BalanceProof
     -> Maybe BalanceProof
-verifyBalanceProof ctx pk msg = case Oracle.verifySignedMessageOnChain ctx pk msg of
+verifyBalanceProofOnChain ctx pk msg = case Oracle.verifySignedMessageOnChain ctx pk msg of
+  Right bp -> Just bp
+  Left err -> Nothing
+
+verifyBalanceProofOffChain ::
+    PubKey
+    -> Oracle.SignedMessage BalanceProof
+    -> Maybe BalanceProof
+verifyBalanceProofOffChain pk msg = case Oracle.verifySignedMessageOffChain pk msg of
   Right bp -> Just bp
   Left err -> Nothing

@@ -62,7 +62,7 @@ validate ChannelParams{..} () (CloseChannel BP.BalanceProofCheck{..}) ctx =
             traceIfFalse "invalid party 1 signature" (validateSignature party1 bpcSignature1)
             && traceIfFalse "invalid party 2 signature" (validateSignature party2 bpcSignature2)
         where
-          validateSignature party sig = isJust $ BP.verifyBalanceProof ctx party sig
+          validateSignature party sig = isJust $ BP.verifyBalanceProofOnChain ctx party sig
 
 typedValidator :: ChannelParams -> Scripts.TypedValidator Channel
 typedValidator = Scripts.mkTypedValidatorParam @Channel
@@ -90,11 +90,14 @@ closeChannel ::
     ChannelParams
     -> BP.BalanceProofCheck
     -> Contract w s Text TxId
-closeChannel cp sigs = do
+closeChannel cp@ChannelParams{..} sigs@BP.BalanceProofCheck{..} = do
+    bp1 <- maybe (throwError "Off-chain party 1 signature invalid") pure $ BP.verifyBalanceProofOffChain party1 bpcSignature1
+    bp2 <- maybe (throwError "Off-chain party 2 signature invalid") pure $ BP.verifyBalanceProofOffChain party2 bpcSignature2
+    unless (bp1 Haskell.== bp2) $ throwError "Balance proofs are not equal"
     let channelScript = typedValidator cp
     unspentOutputs <- utxosAt (Scripts.validatorAddress channelScript)
     let constraints = Typed.collectFromScript unspentOutputs (CloseChannel sigs)
-                       <> Constraints.mustIncludeDatum (Datum $ PlutusTx.toBuiltinData sigs)
+                       <> Constraints.mustIncludeDatum (Datum $ PlutusTx.toBuiltinData bp2)
     let lookups = Constraints.typedValidatorLookups channelScript
                     Haskell.<> Constraints.unspentOutputs unspentOutputs
     if Constraints.modifiesUtxoSet constraints
