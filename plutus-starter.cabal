@@ -43,12 +43,16 @@ library
     exposed-modules:
       Plutus.Contract.BalanceProof
       Plutus.Contract.Channel
+      Plutus.Simulation
     build-depends:
       base >= 4.9 && < 5,
       aeson,
       bytestring,
       text,
       containers,
+      data-default,
+      prettyprinter,
+      freer-simple,
       freer-extras,
       playground-common,
       plutus-contract,
@@ -56,5 +60,7 @@ library
       plutus-tx,
       plutus-ledger,
       plutus-ledger-constraints,
-      plutus-ledger-api
+      plutus-ledger-api,
+      plutus-pab,
+      openapi3
     hs-source-dirs: src

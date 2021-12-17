@@ -21,7 +21,10 @@ import qualified PlutusTx
 import           PlutusTx.Prelude
 import qualified Prelude                      as Haskell
 
+import           Data.Aeson                   (FromJSON, ToJSON)
+import qualified Data.OpenApi.Schema          as OpenApi
 import           Data.Text                    (Text)
+import           GHC.Generics                 (Generic)
 import           Ledger                       (Datum (..), TxId, getCardanoTxId)
 import qualified Ledger
 import qualified Ledger.Constraints           as Constraints
@@ -29,7 +32,7 @@ import           Ledger.Contexts              (ScriptContext (..))
 import           Ledger.Crypto                (PubKey (..))
 import qualified Ledger.Typed.Scripts         as Scripts
 import           Plutus.Contract              (AsContractError, Contract,
-                                               mkTxConstraints,
+                                               logError, mkTxConstraints,
                                                submitUnbalancedTx, throwError,
                                                utxosAt)
 import qualified Plutus.Contract.BalanceProof as BP
@@ -42,6 +45,8 @@ data ChannelParams =
         { party1 :: PubKey
         , party2 :: PubKey
         }
+    deriving (Haskell.Eq, Haskell.Show, Generic)
+    deriving anyclass (FromJSON, ToJSON, OpenApi.ToSchema)
 
 PlutusTx.unstableMakeIsData ''ChannelParams
 PlutusTx.makeLift ''ChannelParams
@@ -91,9 +96,9 @@ closeChannel ::
     -> BP.BalanceProofCheck
     -> Contract w s Text TxId
 closeChannel cp@ChannelParams{..} sigs@BP.BalanceProofCheck{..} = do
-    bp1 <- maybe (throwError "Off-chain party 1 signature invalid") pure $ BP.verifyBalanceProofOffChain party1 bpcSignature1
-    bp2 <- maybe (throwError "Off-chain party 2 signature invalid") pure $ BP.verifyBalanceProofOffChain party2 bpcSignature2
-    unless (bp1 Haskell.== bp2) $ throwError "Balance proofs are not equal"
+    bp1 <- maybe (throw "Off-chain party 1 signature invalid") pure $ BP.verifyBalanceProofOffChain party1 bpcSignature1
+    bp2 <- maybe (throw "Off-chain party 2 signature invalid") pure $ BP.verifyBalanceProofOffChain party2 bpcSignature2
+    unless (bp1 Haskell.== bp2) $ throw "Balance proofs are not equal"
     let channelScript = typedValidator cp
     unspentOutputs <- utxosAt (Scripts.validatorAddress channelScript)
     let constraints = Typed.collectFromScript unspentOutputs (CloseChannel sigs)
@@ -104,4 +109,6 @@ closeChannel cp@ChannelParams{..} sigs@BP.BalanceProofCheck{..} = do
     then do
         utx <- mkTxConstraints lookups constraints
         getCardanoTxId <$> submitUnbalancedTx (Constraints.adjustUnbalancedTx utx)
-    else throwError "Close channel failed"
+    else throw "Close channel failed"
+    where
+        throw e = logError e >> throwError e
